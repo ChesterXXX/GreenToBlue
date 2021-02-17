@@ -58,9 +58,9 @@ class ChatDatabaseAdapter(context: Context) :
         const val COL_MEDIA_LOCATION = "media_location"
         const val COL_MEDIA_HASH = "media_hash"
 
-        private lateinit var mInstance : ChatDatabaseAdapter
-        fun getInstance(context: Context) : ChatDatabaseAdapter{
-            if(!this::mInstance.isInitialized){
+        private lateinit var mInstance: ChatDatabaseAdapter
+        fun getInstance(context: Context): ChatDatabaseAdapter {
+            if (!this::mInstance.isInitialized) {
                 mInstance = ChatDatabaseAdapter(context.applicationContext)
             }
             return mInstance
@@ -127,14 +127,14 @@ class ChatDatabaseAdapter(context: Context) :
     }
 
     override fun onUpgrade(db: SQLiteDatabase?, oldVersion: Int, newVersion: Int) {
-        //TODO("Not yet implemented")
+
     }
 
     //endregion
 
     //region Chat
 
-    fun clearChat(){
+    fun clearChat() {
         writableDatabase.use { db ->
             db.delete(TABLE_CHAT_METADATA, "", arrayOf<String>())
             db.delete(TABLE_PARTICIPANT, "", arrayOf<String>())
@@ -202,54 +202,85 @@ class ChatDatabaseAdapter(context: Context) :
                 val cv = ContentValues()
                 cv.put(COL_PARTICIPANT_NAME, participant.value)
 
-                db.update(TABLE_PARTICIPANT, cv, "$COL_CHAT_KEY=? AND $COL_PARTICIPANT_KEY=?", arrayOf(chatID, participant.key))
+                db.update(
+                    TABLE_PARTICIPANT,
+                    cv,
+                    "$COL_CHAT_KEY=? AND $COL_PARTICIPANT_KEY=?",
+                    arrayOf(chatID, participant.key)
+                )
             }
         }
     }
 
-    fun mergeChats(selectedChats : List<ChatMetadataModel>){
+    fun mergeChats(selectedChats: List<ChatMetadataModel>) {
         val mainChat = selectedChats.maxByOrNull { it.chatCount }!!
+
         var totalChatCount = 0
         var totalMediaCount = 0
         var totalMediaFound = 0
+
         writableDatabase.use { db ->
-            selectedChats.forEach{ chat ->
+            selectedChats.forEach { chat ->
+
                 totalChatCount += chat.chatCount
                 totalMediaCount += chat.mediaCount
                 totalMediaFound += chat.mediaFound
 
-                val chatCV = ContentValues()
-                chatCV.put(COL_CHAT_KEY, mainChat.chatID)
+                if (chat.isGroup()) {
+                    val participantCV = ContentValues()
+                    participantCV.put(COL_CHAT_KEY, mainChat.chatID)
 
-                if(chat.isGroup()){
-                    db.update(TABLE_PARTICIPANT, chatCV, "$COL_CHAT_KEY=?", arrayOf(chat.chatID))
-                } else{
+                    db.update(TABLE_PARTICIPANT, participantCV, "$COL_CHAT_KEY=?", arrayOf(chat.chatID))
+
+
+                    val chatCV = ContentValues()
+                    chatCV.put(COL_CHAT_KEY, mainChat.chatID)
+                    db.update(TABLE_CHAT_DATA, chatCV, "$COL_CHAT_KEY=?", arrayOf(chat.chatID))
+                } else {
                     val participantCV = ContentValues()
                     participantCV.put(COL_CHAT_KEY, mainChat.chatID)
                     participantCV.put(COL_PARTICIPANT_KEY, chat.chatID)
                     participantCV.put(COL_PARTICIPANT_NAME, chat.chatName)
 
                     db.insert(TABLE_PARTICIPANT, null, participantCV)
+
+                    val chatCV = ContentValues()
+                    chatCV.put(COL_CHAT_KEY, mainChat.chatID)
+                    chatCV.put(COL_PARTICIPANT_KEY, chat.chatID)
+                    db.update(TABLE_CHAT_DATA, chatCV, "$COL_CHAT_KEY=?", arrayOf(chat.chatID))
                 }
 
-                if(chat.chatID != mainChat.chatID){
-                    db.update(TABLE_CHAT_DATA, chatCV, "$COL_CHAT_KEY=?", arrayOf(chat.chatID))
-
+                if (chat.chatID != mainChat.chatID) {
                     db.delete(TABLE_CHAT_METADATA, "$COL_CHAT_KEY=?", arrayOf(chat.chatID))
                 }
             }
-            val cv = ContentValues()
-            cv.put(COL_CHAT_COUNT, totalChatCount)
-            cv.put(COL_CHAT_MEDIA_COUNT, totalMediaCount)
-            cv.put(COL_CHAT_MEDIA_FOUND, totalMediaFound)
-            db.update(TABLE_CHAT_METADATA, cv, "$COL_CHAT_KEY=?", arrayOf(mainChat.chatID))
+            val metadataCV = ContentValues()
+            metadataCV.put(COL_CHAT_COUNT, totalChatCount)
+            metadataCV.put(COL_CHAT_MEDIA_COUNT, totalMediaCount)
+            metadataCV.put(COL_CHAT_MEDIA_FOUND, totalMediaFound)
+            db.update(TABLE_CHAT_METADATA, metadataCV, "$COL_CHAT_KEY=?", arrayOf(mainChat.chatID))
+        }
+    }
+
+    fun deleteChats(selectedChats: List<ChatMetadataModel>){
+        writableDatabase.use { db ->
+            db.beginTransaction()
+            selectedChats.forEach{ chatMetadata ->
+                db.delete(TABLE_CHAT_DATA, "$COL_CHAT_KEY=?", arrayOf(chatMetadata.chatID))
+                db.delete(TABLE_PARTICIPANT, "$COL_CHAT_KEY=?", arrayOf(chatMetadata.chatID))
+                db.delete(TABLE_CHAT_METADATA, "$COL_CHAT_KEY=?", arrayOf(chatMetadata.chatID))
+                db.delete(TABLE_CHUNK, "$COL_CHAT_KEY=?", arrayOf(chatMetadata.chatID))
+                db.delete(TABLE_CHUNK_MEDIA, "$COL_CHAT_KEY=?", arrayOf(chatMetadata.chatID))
+            }
+            db.setTransactionSuccessful()
+            db.endTransaction()
         }
     }
     //endregion
 
     //region Media
 
-    fun clearMedia(){
+    fun clearMedia() {
         writableDatabase.use { db ->
             db.delete(TABLE_MEDIA, "", arrayOf<String>())
         }
@@ -283,10 +314,10 @@ class ChatDatabaseAdapter(context: Context) :
 
     fun getMediaFiles(mediaModels: MutableList<MediaModel>) {
         mediaModels.clear()
-        readableDatabase.use { db->
+        readableDatabase.use { db ->
             val query = "SELECT * FROM $TABLE_MEDIA"
             db.rawQuery(query, null).use { curr ->
-                if(curr.moveToFirst()) {
+                if (curr.moveToFirst()) {
                     do {
                         val mediaModel = MediaModel(
                             curr.getString(curr.getColumnIndex(COL_MEDIA_FILENAME)),
@@ -301,7 +332,7 @@ class ChatDatabaseAdapter(context: Context) :
         }
     }
 
-    fun updateMediaFoundCount(chatID: String, mediaFoundCount: Int){
+    fun updateMediaFoundCount(chatID: String, mediaFoundCount: Int) {
         writableDatabase.use { db ->
             val cv = ContentValues()
             cv.put(COL_CHAT_MEDIA_FOUND, mediaFoundCount)
@@ -315,17 +346,23 @@ class ChatDatabaseAdapter(context: Context) :
 
     //region Chunks
 
-    fun clearChunks(chatID : String){
+    fun clearChunks(chatID: String) {
         writableDatabase.use { db ->
             db.delete(TABLE_CHUNK, "$COL_CHAT_KEY=?", arrayOf(chatID))
             db.delete(TABLE_CHUNK_MEDIA, "$COL_CHAT_KEY=?", arrayOf(chatID))
         }
     }
 
-    fun makeChunks(chatMetadata : ChatMetadataModel, myName : String, chunkSize : Int, chunks : MutableList<ChunkDataModel>) {
+    fun makeChunks(
+        chatMetadata: ChatMetadataModel,
+        myName: String,
+        chunkSize: Int,
+        chunks: MutableList<ChunkDataModel>
+    ) {
         val chatID = chatMetadata.chatID
         val participants = chatMetadata.chatParticipants
 
+        Log.d("Par", participants.toString())
         var firstLine: String
         var endLine: String
 
@@ -428,7 +465,7 @@ class ChatDatabaseAdapter(context: Context) :
         }
     }
 
-    fun writeChunks( chatMetadata : ChatMetadataModel, chunks : List<ChunkDataModel> ){
+    fun writeChunks(chatMetadata: ChatMetadataModel, chunks: List<ChunkDataModel>) {
         writableDatabase.use { db ->
             db.beginTransaction()
             try {
@@ -441,7 +478,7 @@ class ChatDatabaseAdapter(context: Context) :
                     chunkCV.put(COL_CHUNK_BLOB, chunk.data)
                     db.insert(TABLE_CHUNK, null, chunkCV)
 
-                    chunk.mediaURI.forEach{ uri ->
+                    chunk.mediaURI.forEach { uri ->
                         val chunkUriCV = ContentValues()
                         chunkUriCV.put(COL_CHAT_KEY, chatMetadata.chatID)
                         chunkUriCV.put(COL_CHUNK_COUNTER, chunk.chunkID)
@@ -458,11 +495,11 @@ class ChatDatabaseAdapter(context: Context) :
     }
 
     @SuppressLint("SimpleDateFormat")
-    private fun getFormattedTime(timestamp: Timestamp) : String {
+    private fun getFormattedTime(timestamp: Timestamp): String {
         return SimpleDateFormat("M/d/yy, h:mm a").format(timestamp)
     }
 
-    fun getChatMetadata(chatMetadataList: MutableList<ChatMetadataModel>){
+    fun getChatMetadata(chatMetadataList: MutableList<ChatMetadataModel>) {
         chatMetadataList.clear()
         readableDatabase.use { db ->
             val metadataQuery = "SELECT * FROM $TABLE_CHAT_METADATA ORDER BY $COL_CHAT_COUNT DESC"
@@ -491,15 +528,8 @@ class ChatDatabaseAdapter(context: Context) :
                         db.rawQuery(participantQuery, null).use { participantCurr ->
                             if (participantCurr.moveToFirst()) {
                                 do {
-                                    val participantID =
-                                        participantCurr.getString(
-                                            participantCurr.getColumnIndex(
-                                                COL_PARTICIPANT_KEY
-                                            )
-                                        )
-                                    val participantName = participantCurr.getString(
-                                        participantCurr.getColumnIndex(COL_PARTICIPANT_NAME)
-                                    )
+                                    val participantID = participantCurr.getString(participantCurr.getColumnIndex(COL_PARTICIPANT_KEY))
+                                    val participantName = participantCurr.getString(participantCurr.getColumnIndex(COL_PARTICIPANT_NAME))
                                     chatMetadata.chatParticipants[participantID] = participantName
                                 } while (participantCurr.moveToNext())
                             }
@@ -515,8 +545,8 @@ class ChatDatabaseAdapter(context: Context) :
     fun getChunks(chatID: String, chunks: MutableList<ChunkDataModel>) {
         readableDatabase.use { db ->
             val chunkMetadataQuery = "SELECT * FROM $TABLE_CHUNK WHERE $COL_CHAT_KEY = '$chatID'"
-            db.rawQuery(chunkMetadataQuery,null).use { curr ->
-                if(curr.moveToFirst()){
+            db.rawQuery(chunkMetadataQuery, null).use { curr ->
+                if (curr.moveToFirst()) {
                     do {
                         val chunk = ChunkDataModel(
                             chatID,
@@ -525,17 +555,22 @@ class ChatDatabaseAdapter(context: Context) :
                             curr.getInt(curr.getColumnIndex(COL_CHUNK_CHAT_COUNTER)),
                             curr.getBlob(curr.getColumnIndex(COL_CHUNK_BLOB))
                         )
-                        val chunkUriQuery = "SELECT * FROM $TABLE_CHUNK_MEDIA WHERE $COL_CHAT_KEY = '$chatID' AND $COL_CHUNK_COUNTER = ${chunk.chunkID}"
+                        val chunkUriQuery =
+                            "SELECT * FROM $TABLE_CHUNK_MEDIA WHERE $COL_CHAT_KEY = '$chatID' AND $COL_CHUNK_COUNTER = ${chunk.chunkID}"
                         db.rawQuery(chunkUriQuery, null).use { uriCurr ->
-                            if(uriCurr.moveToFirst()){
+                            if (uriCurr.moveToFirst()) {
                                 do {
-                                    val uri = Uri.parse(uriCurr.getString(uriCurr.getColumnIndex(COL_MEDIA_URI)))
+                                    val uri = Uri.parse(
+                                        uriCurr.getString(
+                                            uriCurr.getColumnIndex(COL_MEDIA_URI)
+                                        )
+                                    )
                                     chunk.mediaURI.add(uri)
-                                }while (uriCurr.moveToNext())
+                                } while (uriCurr.moveToNext())
                             }
                         }
                         chunks.add(chunk)
-                    }while (curr.moveToNext())
+                    } while (curr.moveToNext())
                 }
 
 

@@ -3,34 +3,33 @@ package org.marvin.greentoblue
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.app.AlertDialog
 import android.app.Dialog
 import android.content.Context
 import android.content.Intent
-import android.content.SharedPreferences
+import android.content.pm.PackageManager
+import android.database.sqlite.SQLiteDatabase
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
-import androidx.preference.PreferenceManager
+import android.os.Environment
+import android.util.Base64
 import android.util.Log
 import android.widget.Button
+import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.documentfile.provider.DocumentFile
-import kotlinx.coroutines.*
-import java.io.File
-
-import android.content.pm.PackageManager
-import android.database.sqlite.SQLiteDatabase
-import android.os.Build
-import android.os.Environment
-import android.util.Base64
-import android.widget.LinearLayout
+import androidx.preference.PreferenceManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import kotlinx.coroutines.*
 import org.marvin.greentoblue.listitemadapters.ChatMetadataAdapter
 import org.marvin.greentoblue.listitemadapters.SelectDirectoryAdapter
 import org.marvin.greentoblue.models.ChatDataModel
 import org.marvin.greentoblue.models.ChatMetadataModel
 import org.marvin.greentoblue.models.MediaModel
+import java.io.File
 import java.security.MessageDigest
 import java.sql.Timestamp
 
@@ -68,7 +67,6 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         mediaFolderLocation = PreferenceManager.getDefaultSharedPreferences(this).getString(PREF_MEDIA_LOCATION, MEDIA_LOCATION_DEFAULT)!!
-        Log.d("media", mediaFolderLocation)
 
         addOnClickListeners()
 
@@ -126,24 +124,26 @@ class MainActivity : AppCompatActivity() {
             val width = (resources.displayMetrics.widthPixels * 0.90).toInt()
             val height = (resources.displayMetrics.heightPixels * 0.90).toInt()
 
-            dialog.getWindow()?.setLayout(width, height)
+            dialog.window?.setLayout(width, height)
 
             val adapter = SelectDirectoryAdapter(mediaFolderLocation)
 
-            val lstDirectory : RecyclerView = dialog.findViewById(R.id.lstDirectory)
+            val lstDirectory: RecyclerView = dialog.findViewById(R.id.lstDirectory)
             lstDirectory.adapter = adapter
             lstDirectory.layoutManager = LinearLayoutManager(this)
             lstDirectory.setHasFixedSize(true)
 
-            val btnSelectDirectory : Button = dialog.findViewById(R.id.btnSelectDirectory)
-            val btnCancelDirectorySelection : Button = dialog.findViewById(R.id.btnCancelDirectorySelection)
+            val btnSelectDirectory: Button = dialog.findViewById(R.id.btnSelectDirectory)
+            val btnCancelDirectorySelection: Button =
+                dialog.findViewById(R.id.btnCancelDirectorySelection)
 
             btnCancelDirectorySelection.setOnClickListener {
                 dialog.dismiss()
             }
 
             btnSelectDirectory.setOnClickListener {
-                val selectedMediaDirectory = (lstDirectory.adapter as SelectDirectoryAdapter).currentDirectory
+                val selectedMediaDirectory =
+                    (lstDirectory.adapter as SelectDirectoryAdapter).currentDirectory
                 mediaFolderLocation = selectedMediaDirectory
                 PreferenceManager.getDefaultSharedPreferences(this)
                     .edit()
@@ -155,7 +155,6 @@ class MainActivity : AppCompatActivity() {
             dialog.show()
 
             adapter.listFolders()
-
 
 
         }
@@ -221,28 +220,59 @@ class MainActivity : AppCompatActivity() {
 
         findViewById<Button>(R.id.btnDeleteChats).setOnClickListener {
             val selectedItems = adapter.getSelectedItems()
-            selectedItems.forEach{
-                Log.d("Deleting", it.chatName)
+            if (selectedItems.isNotEmpty()) {
+                AlertDialog.Builder(this)
+                    .setTitle("Delete Chats")
+                    .setMessage("Do you want to delete ${selectedItems.size} chats?")
+                    .setIcon(android.R.drawable.ic_dialog_alert)
+                    .setCancelable(false)
+                    .setPositiveButton("Yes") { _, _ ->
+                        GlobalScope.launch {
+                            chatDatabase.deleteChats(selectedItems)
+
+                            chatDatabase.getChatMetadata(chatMetadataList)
+
+                            withContext(Dispatchers.Main) {
+                                adapter.cancelSelection()
+                                adapter.notifyDataSetChanged()
+                            }
+                        }
+                    }
+                    .setNegativeButton("No") { _, _ -> }
+                    .show()
+            } else {
+                Toast.makeText(this, "Please select chats to delete!", Toast.LENGTH_SHORT).show()
             }
-            adapter.cancelSelection()
         }
 
         findViewById<Button>(R.id.btnMergeChats).setOnClickListener {
             val selectedItems = adapter.getSelectedItems()
-            if(selectedItems.size <=1){
-                Toast.makeText(this, "Please select at least 2 chats to merge!", Toast.LENGTH_SHORT).show()
+            if (selectedItems.size <= 1) {
+                Toast.makeText(this, "Please select at least 2 chats to merge!", Toast.LENGTH_SHORT)
+                    .show()
             } else {
-                GlobalScope.launch {
-                    chatDatabase.mergeChats(selectedItems)
+                if (selectedItems.isNotEmpty()) {
+                    AlertDialog.Builder(this)
+                        .setTitle("Delete Chats")
+                        .setMessage("Do you want to delete ${selectedItems.size} chats?")
+                        .setIcon(android.R.drawable.ic_dialog_alert)
+                        .setCancelable(false)
+                        .setPositiveButton("Yes") { _, _ ->
+                            GlobalScope.launch {
 
-                    chatDatabase.getChatMetadata(chatMetadataList)
+                                chatDatabase.mergeChats(selectedItems)
 
-                    withContext(Dispatchers.Main){
-                        adapter.notifyDataSetChanged()
-                    }
+                                chatDatabase.getChatMetadata(chatMetadataList)
+
+                                withContext(Dispatchers.Main) {
+                                    adapter.cancelSelection()
+                                    adapter.notifyDataSetChanged()
+                                }
+                            }
+                        }
+                        .setNegativeButton("No") { _, _ -> }
+                        .show()
                 }
-
-                adapter.cancelSelection()
             }
         }
     }
@@ -470,7 +500,7 @@ class MainActivity : AppCompatActivity() {
         val participantsMap = mutableMapOf<String, String>()
         SQLiteDatabase.openOrCreateDatabase(File(filesDir, DATABASE_WA), null).use { db ->
             val query = "SELECT jid, display_name, wa_name FROM wa_contacts"
-            db.rawQuery(query, null).use { it ->
+            db.rawQuery(query, null).use {
                 if (it.moveToFirst()) {
                     do {
                         val jid = it.getString(0)
@@ -519,7 +549,7 @@ class MainActivity : AppCompatActivity() {
                         val chatID = it.getString(0)
                         val chatCount = it.getInt(1)
                         val mediaCount = it.getInt(2)
-                        val chatName = participants[chatID] ?: chatID
+                        val chatName = participants[chatID] ?: getPhoneNumberOrID(chatID)
                         val chat =
                             ChatMetadataModel(chatID, chatName, chatCount, mediaCount, 0)
 

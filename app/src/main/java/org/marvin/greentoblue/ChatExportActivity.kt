@@ -72,7 +72,7 @@ class ChatExportActivity : AppCompatActivity() {
         }
     }
 
-    @SuppressLint("NotifyDataSetChanged")
+    @SuppressLint("NotifyDataSetChanged", "SetTextI18n")
     private fun initViews() {
         findViewById<TextView>(R.id.txtChatHeader)?.let{
             it.text = if(chatMetadata.isGroup()) "Group Name" else "Participant Name"
@@ -163,16 +163,6 @@ class ChatExportActivity : AppCompatActivity() {
         setResult(CHAT_METADATA_RESULT_CODE, intent)
 
         super.onBackPressed()
-    }
-
-
-    private fun shareToTelegram(){
-        //val testIntent = Intent(Intent.ACTION_SEND_MULTIPLE)
-        //testIntent.action = Intent.ACTION_SEND_MULTIPLE*/
-        //testIntent.type = "*/*"
-        //testIntent.putParcelableArrayListExtra(Intent.EXTRA_STREAM, fileUris)
-        //startActivity(testIntent)
-        TODO()
     }
 
 }

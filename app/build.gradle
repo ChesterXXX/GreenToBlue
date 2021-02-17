@@ -48,19 +48,9 @@ dependencies {
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-rx2:1.1.1'
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-reactive:1.1.1'
 
-//    implementation "androidx.room:room-runtime:2.2.6"
-  //  kapt "androidx.room:room-compiler:2.2.6"
-    //implementation "androidx.room:room-ktx:2.2.6"
-
     implementation 'androidx.preference:preference-ktx:1.1.1'
 
     implementation "androidx.recyclerview:recyclerview:1.1.0"
     implementation "androidx.recyclerview:recyclerview-selection:1.1.0"
 
-
-
-
-//    testImplementation 'junit:junit:4.13.1'
-  //  androidTestImplementation 'androidx.test.ext:junit:1.1.2'
-    //androidTestImplementation 'androidx.test.espresso:espresso-core:3.3.0'
 }

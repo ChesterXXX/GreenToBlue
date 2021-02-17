@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_height="wrap_content"
+    android:layout_width="match_parent"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    app:cardCornerRadius="3dp"
+    app:cardElevation="4dp"
+    android:layout_margin="6dp"
+    android:background="@color/cardview_dark_background" layout_height="">
+<LinearLayout
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="4dp">
+    <TextView
+        android:id="@+id/txtParticipantID"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textStyle="bold"
+        android:layout_margin="5dp"
+        android:textSize="12sp"/>
+    <EditText
+        android:id="@+id/editTxtParticipantName"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="5dp"
+        android:tooltipText="Name To Appear In Chat"
+        android:inputType="text" />
+</LinearLayout>
+</androidx.cardview.widget.CardView>

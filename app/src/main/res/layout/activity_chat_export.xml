@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:orientation="vertical"
+    tools:context=".ChatExportActivity">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_weight="0"
+        android:padding="10dp">
+        <TextView
+            android:layout_width="0px"
+            android:layout_height="wrap_content"
+            android:text="My Name"
+            android:layout_margin="5dp"
+            android:layout_gravity="center"
+            android:textSize="12sp"
+            android:layout_weight=".5"/>
+        <EditText
+            android:id="@+id/editTxtMyName"
+            android:layout_width="0px"
+            android:layout_height="wrap_content"
+            android:tooltipText="Your Name In Chat"
+            android:layout_margin="5dp"
+            android:layout_gravity="center"
+            android:layout_weight="1.5"/>
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_weight="0"
+        android:padding="10dp">
+        <TextView
+            android:id="@+id/txtChatHeader"
+            android:layout_width="0px"
+            android:layout_height="wrap_content"
+            android:text="Participant Name"
+            android:layout_margin="5dp"
+            android:layout_gravity="center"
+            android:textSize="12sp"
+            android:layout_weight=".5"/>
+        <EditText
+            android:id="@+id/editTxtChatName"
+            android:layout_width="0px"
+            android:layout_height="wrap_content"
+            android:tooltipText="Chat Header"
+            android:layout_margin="5dp"
+            android:layout_gravity="center"
+            android:layout_weight="1.5"/>
+    </LinearLayout>
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/layoutParticipantBLock"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <TextView
+            android:id="@+id/txtParticipants"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_margin="5dp"
+            android:text="Participants"
+            android:textSize="12sp"
+            app:layout_constraintTop_toTopOf="parent"
+            tools:layout_editor_absoluteX="5dp" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/lstParticipants"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:layout_constrainedHeight="true"
+            app:layout_constraintHeight_max="300dp"
+            android:layout_margin="5dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/txtParticipants" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <Button
+        android:id="@+id/btnSaveParticipants"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:layout_constraintBottom_toBottomOf="parent"
+        android:layout_margin="5dp"
+        android:text="Save Participant Names"/>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_weight="0"
+        android:padding="10dp">
+        <TextView
+            android:layout_width="0px"
+            android:layout_height="wrap_content"
+            android:text="Chunk Size "
+            android:layout_margin="5dp"
+            android:layout_gravity="center"
+            android:layout_weight=".5"/>
+        <EditText
+            android:id="@+id/editTxtChunkSize"
+            android:layout_width="0px"
+            android:layout_height="wrap_content"
+            android:tooltipText="Maximum Number Of Media In Each Export"
+            android:layout_margin="5dp"
+            android:layout_gravity="center"
+            android:text="@={chunkSize}"
+            android:inputType="number"
+            android:layout_weight=".5"/>
+        <Button
+            android:id="@+id/btnMakeChunks"
+            android:layout_width="0px"
+            android:layout_height="wrap_content"
+            android:text="Make Export Chunks"
+            android:layout_margin="5dp"
+            android:layout_gravity="center"
+            android:layout_weight="1"/>
+    </LinearLayout>
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/lstChunks"
+        android:layout_width="match_parent"
+        android:layout_height="0px"
+        android:layout_margin="5dp"
+        android:layout_weight="1" />
+</LinearLayout>

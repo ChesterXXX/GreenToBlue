@@ -20,7 +20,7 @@ Also keep in mind that Telegram will import <b>all</b> the chats at the very end
 You need access to two .db files, namely, <i>msgstore.db</i> and <i>wa.db</i>. The first one contains all your chat data, unencrypted! The second one contains the actual names of your whtasapp contacts. Both are SQLite databases, you can easily browse them using <a href=https://sqlitebrowser.org/>DB Browsser</a>
 <br><br>
 <p>
-The problem is, you need to have a rooted android phone to access these files, since they are located in */data/data/com.whatsapp/databases/*
+The problem is, you need to have a rooted android phone to access these files, since they are located in <i>/data/data/com.whatsapp/databases/</i>
 </p>
 <br>
 <p>
@@ -38,7 +38,7 @@ So root your phone! Or not... Here's a workaround (a very ineffecive workaround)
 
 Also, I hypothesize that the above process should work for iOS users as well, since all you need to do on your device is the backup to GDrive, which is present in iPhones (I think).
 
-Now that you have the *.db* files, locate them in the app. Also locate the media folder. Usually its in */Whatsapp/media/*.
+Now that you have the <i>.db</i> files, locate them in the app. Also locate the media folder. Usually its in <i>/Whatsapp/media/</i> of your device.
 
 <h3>How to export facebook chat?</h3>
 In you FB profile settings, there should be an option to download all your data. Select JSON format and download all your messages. After some time, you'll be notified that your download is ready. Download the zip file to your device. Extract it somewhere. Locate the messages folder in the app.

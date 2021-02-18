@@ -13,5 +13,6 @@ data class ChatDataModel (
     val mediaName : String = "",
     val mediaCaption : String = "",
     val mediaFound : Boolean = false,
-    val mediaURI : Uri = Uri.EMPTY
+    val mediaURI : Uri = Uri.EMPTY,
+    val chatSource : String
 )

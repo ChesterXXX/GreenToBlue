@@ -7,10 +7,7 @@ import android.database.sqlite.SQLiteDatabase
 import android.net.Uri
 import android.os.Build
 import android.util.Log
-import org.marvin.greentoblue.models.ChatDataModel
-import org.marvin.greentoblue.models.ChatMetadataModel
-import org.marvin.greentoblue.models.ChunkDataModel
-import org.marvin.greentoblue.models.MediaModel
+import org.marvin.greentoblue.models.*
 import java.io.*
 import java.sql.Timestamp
 import java.text.SimpleDateFormat
@@ -58,6 +55,9 @@ class ChatDatabaseAdapter(context: Context) :
         const val COL_MEDIA_LOCATION = "media_location"
         const val COL_MEDIA_HASH = "media_hash"
 
+        const val COL_CHAT_SOURCE = "chat_source"
+
+
         private lateinit var mInstance: ChatDatabaseAdapter
         fun getInstance(context: Context): ChatDatabaseAdapter {
             if (!this::mInstance.isInitialized) {
@@ -79,14 +79,16 @@ class ChatDatabaseAdapter(context: Context) :
         val createParticipantsTable = "CREATE TABLE IF NOT EXISTS $TABLE_PARTICIPANT (" +
                 "$COL_CHAT_KEY TEXT, " +
                 "$COL_PARTICIPANT_KEY TEXT, " +
-                "$COL_PARTICIPANT_NAME TEXT)"
+                "$COL_PARTICIPANT_NAME TEXT, " +
+                "$COL_CHAT_SOURCE TEXT)"
 
         val createChatMetadataTable = "CREATE TABLE IF NOT EXISTS $TABLE_CHAT_METADATA (" +
                 "$COL_CHAT_KEY TEXT, " +
                 "$COL_CHAT_NAME TEXT, " +
                 "$COL_CHAT_COUNT INT, " +
                 "$COL_CHAT_MEDIA_COUNT INT, " +
-                "$COL_CHAT_MEDIA_FOUND INT)"
+                "$COL_CHAT_MEDIA_FOUND INT, " +
+                "$COL_CHAT_SOURCE TEXT)"
 
         val createChatDataTable = "CREATE TABLE IF NOT EXISTS $TABLE_CHAT_DATA (" +
                 "$COL_CHAT_KEY TEXT, " +
@@ -98,7 +100,8 @@ class ChatDatabaseAdapter(context: Context) :
                 "$COL_MEDIA_NAME TEXT, " +
                 "$COL_MEDIA_CAPTION TEXT, " +
                 "$COL_MEDIA_FOUND INT, " +
-                "$COL_MEDIA_URI TEXT)"
+                "$COL_MEDIA_URI TEXT, " +
+                "$COL_CHAT_SOURCE TEXT)"
 
         val createMediaTable = "CREATE TABLE IF NOT EXISTS $TABLE_MEDIA (" +
                 "$COL_MEDIA_FILENAME TEXT, " +
@@ -134,12 +137,34 @@ class ChatDatabaseAdapter(context: Context) :
 
     //region Chat
 
-    fun clearChat() {
+    fun clearChatWhatsapp() {
         writableDatabase.use { db ->
-            db.delete(TABLE_CHAT_METADATA, "", arrayOf<String>())
-            db.delete(TABLE_PARTICIPANT, "", arrayOf<String>())
-            db.delete(TABLE_CHAT_DATA, "", arrayOf<String>())
+            db.delete(TABLE_CHAT_METADATA, "$COL_CHAT_SOURCE=?", arrayOf<String>(ChatSources.SOURCE_WHATSAPP))
+            db.delete(TABLE_CHAT_DATA, "$COL_CHAT_SOURCE=?", arrayOf<String>(ChatSources.SOURCE_WHATSAPP))
+            db.delete(TABLE_PARTICIPANT, "$COL_CHAT_SOURCE=?", arrayOf<String>(ChatSources.SOURCE_WHATSAPP))
         }
+    }
+
+    fun clearChatFB() {
+        writableDatabase.use { db ->
+            db.delete(TABLE_CHAT_METADATA, "$COL_CHAT_SOURCE=?", arrayOf<String>(ChatSources.SOURCE_FB))
+            db.delete(TABLE_CHAT_DATA, "$COL_CHAT_SOURCE=?", arrayOf<String>(ChatSources.SOURCE_FB))
+            db.delete(TABLE_PARTICIPANT, "$COL_CHAT_SOURCE=?", arrayOf<String>(ChatSources.SOURCE_FB))
+        }
+    }
+
+    fun clearChatMerged() {
+        writableDatabase.use { db ->
+            db.delete(TABLE_CHAT_METADATA, "$COL_CHAT_SOURCE=?", arrayOf<String>(ChatSources.SOURCE_MERGED))
+            db.delete(TABLE_CHAT_DATA, "$COL_CHAT_SOURCE=?", arrayOf<String>(ChatSources.SOURCE_MERGED))
+            db.delete(TABLE_PARTICIPANT, "$COL_CHAT_SOURCE=?", arrayOf<String>(ChatSources.SOURCE_MERGED))
+        }
+    }
+
+    fun clearChatAll(){
+        clearChatWhatsapp()
+        clearChatFB()
+        clearChatMerged()
     }
 
     fun addChatData(chatData: List<ChatDataModel>) {
@@ -159,6 +184,7 @@ class ChatDatabaseAdapter(context: Context) :
                     cv.put(COL_MEDIA_CAPTION, chat.mediaCaption)
                     cv.put(COL_MEDIA_FOUND, chat.mediaFound)
                     cv.put(COL_MEDIA_URI, chat.mediaURI.toString())
+                    cv.put(COL_CHAT_SOURCE, chat.chatSource)
 
                     db.insert(TABLE_CHAT_DATA, null, cv)
                 }
@@ -177,6 +203,7 @@ class ChatDatabaseAdapter(context: Context) :
             chatCV.put(COL_CHAT_COUNT, chatMetadataModel.chatCount)
             chatCV.put(COL_CHAT_MEDIA_COUNT, chatMetadataModel.mediaCount)
             chatCV.put(COL_CHAT_MEDIA_FOUND, chatMetadataModel.mediaFound)
+            chatCV.put(COL_CHAT_SOURCE, chatMetadataModel.chatSource)
 
             db.insert(TABLE_CHAT_METADATA, null, chatCV)
 
@@ -229,24 +256,28 @@ class ChatDatabaseAdapter(context: Context) :
                 if (chat.isGroup()) {
                     val participantCV = ContentValues()
                     participantCV.put(COL_CHAT_KEY, mainChat.chatID)
+                    participantCV.put(COL_CHAT_SOURCE, ChatSources.SOURCE_MERGED)
 
                     db.update(TABLE_PARTICIPANT, participantCV, "$COL_CHAT_KEY=?", arrayOf(chat.chatID))
 
 
                     val chatCV = ContentValues()
                     chatCV.put(COL_CHAT_KEY, mainChat.chatID)
+                    chatCV.put(COL_CHAT_SOURCE, ChatSources.SOURCE_MERGED)
                     db.update(TABLE_CHAT_DATA, chatCV, "$COL_CHAT_KEY=?", arrayOf(chat.chatID))
                 } else {
                     val participantCV = ContentValues()
                     participantCV.put(COL_CHAT_KEY, mainChat.chatID)
                     participantCV.put(COL_PARTICIPANT_KEY, chat.chatID)
                     participantCV.put(COL_PARTICIPANT_NAME, chat.chatName)
+                    participantCV.put(COL_CHAT_SOURCE, ChatSources.SOURCE_MERGED)
 
                     db.insert(TABLE_PARTICIPANT, null, participantCV)
 
                     val chatCV = ContentValues()
                     chatCV.put(COL_CHAT_KEY, mainChat.chatID)
                     chatCV.put(COL_PARTICIPANT_KEY, chat.chatID)
+                    chatCV.put(COL_CHAT_SOURCE, ChatSources.SOURCE_MERGED)
                     db.update(TABLE_CHAT_DATA, chatCV, "$COL_CHAT_KEY=?", arrayOf(chat.chatID))
                 }
 
@@ -258,6 +289,7 @@ class ChatDatabaseAdapter(context: Context) :
             metadataCV.put(COL_CHAT_COUNT, totalChatCount)
             metadataCV.put(COL_CHAT_MEDIA_COUNT, totalMediaCount)
             metadataCV.put(COL_CHAT_MEDIA_FOUND, totalMediaFound)
+            metadataCV.put(COL_CHAT_SOURCE, ChatSources.SOURCE_MERGED)
             db.update(TABLE_CHAT_METADATA, metadataCV, "$COL_CHAT_KEY=?", arrayOf(mainChat.chatID))
         }
     }
@@ -367,11 +399,7 @@ class ChatDatabaseAdapter(context: Context) :
         var endLine: String
 
         readableDatabase.use { db ->
-            val query =
-                "SELECT $COL_TIMESTAMP, $COL_CHAT_DATA, $COL_CHAT_FROM_ME, $COL_PARTICIPANT_KEY, $COL_HAS_MEDIA, $COL_MEDIA_NAME, $COL_MEDIA_CAPTION, $COL_MEDIA_FOUND, $COL_MEDIA_URI " +
-                        "FROM $TABLE_CHAT_DATA " +
-                        "WHERE $COL_CHAT_KEY='$chatID' " +
-                        "ORDER BY $COL_TIMESTAMP ASC"
+            val query = "SELECT * FROM $TABLE_CHAT_DATA WHERE $COL_CHAT_KEY='$chatID' ORDER BY $COL_TIMESTAMP ASC"
 
             db.rawQuery(query, null).use { curr ->
                 if (curr.moveToFirst()) {
@@ -399,7 +427,8 @@ class ChatDatabaseAdapter(context: Context) :
                             curr.getString(curr.getColumnIndex(COL_MEDIA_NAME)),
                             curr.getString(curr.getColumnIndex(COL_MEDIA_CAPTION)),
                             curr.getInt(curr.getColumnIndex(COL_MEDIA_FOUND)) == 1,
-                            Uri.parse(curr.getString(curr.getColumnIndex(COL_MEDIA_URI)))
+                            Uri.parse(curr.getString(curr.getColumnIndex(COL_MEDIA_URI))),
+                            curr.getString(curr.getColumnIndex(COL_CHAT_SOURCE))
                         )
                         val sender = when {
                             chatData.chatFromMe -> {
@@ -516,12 +545,15 @@ class ChatDatabaseAdapter(context: Context) :
                             metadataCurr.getInt(metadataCurr.getColumnIndex(COL_CHAT_MEDIA_COUNT))
                         val chatMediaFound =
                             metadataCurr.getInt(metadataCurr.getColumnIndex(COL_CHAT_MEDIA_FOUND))
+                        val chatSource =
+                            metadataCurr.getString((metadataCurr.getColumnIndex(COL_CHAT_SOURCE)))
                         val chatMetadata = ChatMetadataModel(
                             chatID,
                             chatName,
                             chatCount,
                             chatMediaCount,
-                            chatMediaFound
+                            chatMediaFound,
+                            chatSource
                         )
                         val participantQuery =
                             "SELECT * FROM $TABLE_PARTICIPANT WHERE $COL_CHAT_KEY='$chatID'"

@@ -2,6 +2,7 @@ package org.marvin.greentoblue.models
 
 import android.os.Parcel
 import android.os.Parcelable
+import org.marvin.greentoblue.ChatDatabaseAdapter
 
 data class ChatMetadataModel(
     val chatID: String,
@@ -9,6 +10,7 @@ data class ChatMetadataModel(
     val chatCount : Int,
     val mediaCount : Int,
     var mediaFound : Int,
+    var chatSource: String,
     var isSelected : Boolean = false
 ) : Parcelable{
 
@@ -19,7 +21,8 @@ data class ChatMetadataModel(
         parcel.readString() ?: "",
         parcel.readInt(),
         parcel.readInt(),
-        parcel.readInt()
+        parcel.readInt(),
+        parcel.readString() ?: ChatSources.SOURCE_WHATSAPP
     ) {
         parcel.readMap(chatParticipants, null)
     }
@@ -34,6 +37,7 @@ data class ChatMetadataModel(
         parcel.writeInt(chatCount)
         parcel.writeInt(mediaCount)
         parcel.writeInt(mediaFound)
+        parcel.writeString(chatSource)
         parcel.writeMap(chatParticipants)
     }
 

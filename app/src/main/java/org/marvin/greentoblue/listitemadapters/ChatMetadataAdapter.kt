@@ -10,18 +10,19 @@ import android.view.ViewGroup
 import android.widget.ArrayAdapter
 import android.widget.BaseAdapter
 import android.widget.TextView
+import android.widget.Toast
 import androidx.core.content.ContextCompat.startActivity
 import androidx.recyclerview.widget.RecyclerView
 import org.marvin.greentoblue.ChatExportActivity
 import org.marvin.greentoblue.MainActivity
 import org.marvin.greentoblue.R
 import org.marvin.greentoblue.models.ChatMetadataModel
+import org.marvin.greentoblue.models.ChatSources
 
 class ChatMetadataAdapter(private val activity: MainActivity, private val chatMetadataSource: List<ChatMetadataModel>) : RecyclerView.Adapter<ChatMetadataAdapter.ChatMetadataViewHolder>(){
 
     companion object{
         private var INTENT_CHAT_METADATA = "chatmetadata"
-        private var CHAT_METADATA_REQUEST_CODE = 5
     }
 
     private var selectionMode = false
@@ -44,24 +45,36 @@ class ChatMetadataAdapter(private val activity: MainActivity, private val chatMe
     override fun onBindViewHolder(holder: ChatMetadataViewHolder, position: Int) {
         val currentChat = chatMetadataSource[position]
         holder.txtChatName.text = currentChat.chatName
-        holder.txtChatDetails.text = "${currentChat.chatCount} chats, with ${currentChat.mediaCount} media files, of which ${currentChat.mediaFound} are found"
+        val chatSource = when(currentChat.chatSource){
+            ChatSources.SOURCE_WHATSAPP -> "Whatsapp"
+            ChatSources.SOURCE_FB -> "FB"
+            ChatSources.SOURCE_MERGED -> "Merged"
+            else -> "Unknown"
+        }
+        holder.txtChatDetails.text = "${currentChat.chatCount} chats, with ${currentChat.mediaCount} media files, of which ${currentChat.mediaFound} are found. Source : $chatSource"
 
         if(currentChat.isSelected) holder.itemView.setBackgroundColor(Color.RED)
         else holder.itemView.setBackgroundColor(Color.parseColor("#232323"))
 
         holder.itemView.setOnClickListener {
-            if(!selectionMode) {
-                val intent = Intent(activity, ChatExportActivity::class.java)
-                intent.putExtra(INTENT_CHAT_METADATA, currentChat)
-                activity.startActivityForResult(intent, 0)
+            if(activity.isScanning()) {
+                Toast.makeText(activity.applicationContext, "Scanning In Progress! Please Be Patient!", Toast.LENGTH_SHORT).show()
             } else {
-                currentChat.isSelected = !currentChat.isSelected
-                notifyItemChanged(position)
+                if (!selectionMode) {
+                    val intent = Intent(activity, ChatExportActivity::class.java)
+                    intent.putExtra(INTENT_CHAT_METADATA, currentChat)
+                    activity.startActivityForResult(intent, 0)
+                } else {
+                    currentChat.isSelected = !currentChat.isSelected
+                    notifyItemChanged(position)
+                }
             }
         }
 
         holder.itemView.setOnLongClickListener{
-            if(!selectionMode){
+            if(activity.isScanning()){
+                Toast.makeText(activity.applicationContext, "Scanning In Progress! Please Be Patient!", Toast.LENGTH_SHORT).show()
+            } else if(!selectionMode ){
                 selectionMode = true
                 currentChat.isSelected = selectionMode
                 activity.onParticipantSelection(selectionMode)

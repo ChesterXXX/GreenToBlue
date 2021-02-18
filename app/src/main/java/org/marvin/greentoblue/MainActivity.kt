@@ -30,6 +30,7 @@ import org.marvin.greentoblue.listitemadapters.ChatMetadataAdapter
 import org.marvin.greentoblue.listitemadapters.SelectDirectoryAdapter
 import org.marvin.greentoblue.models.ChatDataModel
 import org.marvin.greentoblue.models.ChatMetadataModel
+import org.marvin.greentoblue.models.ChatSources
 import org.marvin.greentoblue.models.MediaModel
 import java.io.File
 import java.security.MessageDigest
@@ -54,6 +55,8 @@ class MainActivity : AppCompatActivity() {
         private const val DATABASE_WA = "wa.db"
     }
 
+    class FBChatData(val chatMetadata: ChatMetadataModel, val chats: List<ChatDataModel>)
+
     //region Private Variables
 
     private lateinit var chatDatabase: ChatDatabaseAdapter
@@ -67,6 +70,8 @@ class MainActivity : AppCompatActivity() {
 
     private var chatSelected = false
 
+    private var scanning = false
+
     //endregion
 
     //region Initialization
@@ -75,8 +80,14 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        mediaFolderLocation = PreferenceManager.getDefaultSharedPreferences(this).getString(PREF_MEDIA_LOCATION, MEDIA_LOCATION_DEFAULT)!!
-        fbChatFolderLocation = PreferenceManager.getDefaultSharedPreferences(this).getString(PREF_FB_CHAT_LOCATION, "")!!
+        mediaFolderLocation = PreferenceManager.getDefaultSharedPreferences(this).getString(
+            PREF_MEDIA_LOCATION,
+            MEDIA_LOCATION_DEFAULT
+        )!!
+        fbChatFolderLocation = PreferenceManager.getDefaultSharedPreferences(this).getString(
+            PREF_FB_CHAT_LOCATION,
+            Environment.getExternalStorageDirectory().absolutePath
+        )!!
 
         addOnClickListeners()
 
@@ -108,16 +119,11 @@ class MainActivity : AppCompatActivity() {
         addOnClickListenersEditChatMetadata()
     }
 
-    @SuppressLint("NotifyDataSetChanged", "SetTextI18n")
     private fun addOnClickListenersWhatsapp() {
         findViewById<Button>(R.id.btnMsgStore).setOnClickListener {
-            val msgStoreIntent =
-                Intent().setType("application/*").setAction(Intent.ACTION_GET_CONTENT)
+            val msgStoreIntent = Intent().setType("application/*").setAction(Intent.ACTION_GET_CONTENT)
 
-            startActivityForResult(
-                Intent.createChooser(msgStoreIntent, "Select msgstore.db"),
-                MSGSTORE_LOCATION_REQUEST_CODE
-            )
+            startActivityForResult(Intent.createChooser(msgStoreIntent, "Select msgstore.db"),MSGSTORE_LOCATION_REQUEST_CODE)
         }
 
         findViewById<Button>(R.id.btnWA).setOnClickListener {
@@ -172,63 +178,31 @@ class MainActivity : AppCompatActivity() {
         }
 
         findViewById<Button>(R.id.btnScanMedia).setOnClickListener {
-            if (hasPermission()) {
-                GlobalScope.launch(Dispatchers.IO) {
-                    withContext(Dispatchers.Main) {
-                        val btn = it as Button
-                        btn.isEnabled = false
-                        btn.text = "Scanning..."
-                    }
-
+            if(scanning){
+                Toast.makeText(applicationContext, "Scanning In Progress! Please Be Patient!", Toast.LENGTH_SHORT).show()
+            }else {
+                if (hasPermission()) {
                     scanMedia()
-
-                    withContext(Dispatchers.Main) {
-                        val btn = it as Button
-                        btn.text = "Scan Media"
-                        btn.isEnabled = true
-                        Toast.makeText(
-                            applicationContext,
-                            "Scanned ${mediaFiles.size} Media Files!",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    }
+                } else {
+                    askPermissions()
                 }
-            } else {
-                askPermissions()
             }
         }
 
         findViewById<Button>(R.id.btnScanDB).setOnClickListener {
-            if (mediaFiles.isEmpty()) {
-                Toast.makeText(this, "Please Scan Media First!", Toast.LENGTH_SHORT).show()
-            } else if (databasesExist()) {
-                GlobalScope.launch {
-                    withContext(Dispatchers.Main) {
-                        val btn = it as Button
-                        btn.isEnabled = false
-                        btn.text = "Scanning..."
-                    }
-
-                    scanDatabase()
-
-                    withContext(Dispatchers.Main) {
-                        val btn = it as Button
-                        btn.text = "Scan DB"
-                        btn.isEnabled = true
-                        adapter.notifyDataSetChanged()
-                        Toast.makeText(
-                            applicationContext,
-                            "Database Created!",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    }
+            if(scanning){
+                Toast.makeText(applicationContext, "Scanning In Progress! Please Be Patient!", Toast.LENGTH_SHORT).show()
+            } else {
+                if (mediaFiles.isEmpty()) {
+                    Toast.makeText(this, "Please Scan Media First!", Toast.LENGTH_SHORT).show()
+                } else if (databasesExist()) {
+                    scanWhatsappDatabase()
                 }
             }
         }
 
     }
 
-    @SuppressLint("NotifyDataSetChanged", "SetTextI18n")
     private fun addOnClickListenersFB() {
         findViewById<Button>(R.id.btnFBChatBackup).setOnClickListener {
             val dialog = Dialog(this)
@@ -241,7 +215,7 @@ class MainActivity : AppCompatActivity() {
 
             dialog.window?.setLayout(width, height)
 
-            val directoryAdapter = SelectDirectoryAdapter(mediaFolderLocation)
+            val directoryAdapter = SelectDirectoryAdapter(fbChatFolderLocation)
 
             val lstDirectory: RecyclerView = dialog.findViewById(R.id.lstDirectory)
             lstDirectory.adapter = directoryAdapter
@@ -278,33 +252,41 @@ class MainActivity : AppCompatActivity() {
         }
 
         findViewById<Button>(R.id.btnScanFB).setOnClickListener {
-            val dialog = Dialog(this)
-            dialog.setTitle("Select FB Chat Backup Directory")
-            dialog.setCancelable(false)
-            dialog.setContentView(R.layout.dialog_fb_my_name)
+            if(scanning){
+                Toast.makeText(applicationContext, "Scanning In Progress! Please Be Patient!", Toast.LENGTH_SHORT).show()
+            } else {
+                val dialog = Dialog(this)
+                dialog.setTitle("Select FB Chat Backup Directory")
+                dialog.setCancelable(false)
+                dialog.setContentView(R.layout.dialog_fb_my_name)
 
-            val width = (resources.displayMetrics.widthPixels * 0.90).toInt()
-            val height = (resources.displayMetrics.heightPixels * 0.15).toInt()
+                val width = (resources.displayMetrics.widthPixels * 0.90).toInt()
+                val height = (resources.displayMetrics.heightPixels * 0.15).toInt()
 
-            dialog.window?.setLayout(width, height)
+                dialog.window?.setLayout(width, height)
 
-            dialog.findViewById<Button>(R.id.btnOkMyNameFB).setOnClickListener {
-                val myName = dialog.findViewById<EditText>(R.id.editTxtMyNameFB).text.toString().trim()
-                if(myName.isNotEmpty()){
-                    dialog.dismiss()
-                    scanFB(myName)
-                } else {
-                    Toast.makeText(this, "Name Cannot Be Empty!", Toast.LENGTH_SHORT).show()
+                dialog.findViewById<Button>(R.id.btnOkMyNameFB).setOnClickListener {
+                    val myName =
+                        dialog.findViewById<EditText>(R.id.editTxtMyNameFB).text.toString().trim()
+                    if (myName.isNotEmpty()) {
+                        dialog.dismiss()
+                        scanFB(myName)
+                    } else {
+                        Toast.makeText(this, "Name Cannot Be Empty!", Toast.LENGTH_SHORT).show()
+                    }
                 }
+
+                dialog.findViewById<Button>(R.id.btnCancelMyNameFB).setOnClickListener {
+                    Toast.makeText(
+                        this,
+                        "Cannot Scan FB Chat Without Your Name!",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    dialog.dismiss()
+                }
+
+                dialog.show()
             }
-
-            dialog.findViewById<Button>(R.id.btnCancelMyNameFB).setOnClickListener {
-                Toast.makeText(this, "Cannot Scan FB Chat Without Your Name!", Toast.LENGTH_SHORT).show()
-                dialog.dismiss()
-            }
-
-            dialog.show()
-
         }
     }
 
@@ -402,16 +384,35 @@ class MainActivity : AppCompatActivity() {
 
     //region Scan Media Folder
 
+    @SuppressLint("SetTextI18n")
     private fun scanMedia() {
-        val mediaFolder = File(mediaFolderLocation)
+        GlobalScope.launch(Dispatchers.IO) {
+            withContext(Dispatchers.Main) {
+                val btn = findViewById<Button>(R.id.btnScanMedia)
+                btn.isEnabled = false
+                btn.text = "Scanning..."
+                scanning = true
+            }
+            val mediaFolder = File(mediaFolderLocation)
 
-        scanMediaDir(mediaFolder, mediaFiles)
+            scanMediaDir(mediaFolder, mediaFiles)
 
-        chatDatabase.clearMedia()
+            chatDatabase.clearMedia()
 
-        chatDatabase.addMediaFiles(mediaFiles)
+            chatDatabase.addMediaFiles(mediaFiles)
 
-        Log.d("FILES", "Got ${mediaFiles.size} many media files!")
+            withContext(Dispatchers.Main) {
+                val btn = findViewById<Button>(R.id.btnScanMedia)
+                btn.text = "Scan Media"
+                btn.isEnabled = true
+                Toast.makeText(
+                    applicationContext,
+                    "Scanned ${mediaFiles.size} Media Files!",
+                    Toast.LENGTH_SHORT
+                ).show()
+                scanning = false
+            }
+        }
     }
 
     private fun scanMediaDir(mediaLoc: File, mediaFiles: MutableList<MediaModel>) {
@@ -438,22 +439,48 @@ class MainActivity : AppCompatActivity() {
 
     //region Create ChatMetadata : Whatsapp
 
-    private fun scanDatabase() {
-        val map = createParticipantsMap()
+    @SuppressLint("NotifyDataSetChanged", "SetTextI18n")
+    private fun scanWhatsappDatabase() {
+        GlobalScope.launch {
+            withContext(Dispatchers.Main) {
+                val btn = findViewById<Button>(R.id.btnScanDB)
+                btn.isEnabled = false
+                btn.text = "Scanning..."
+                scanning = true
+            }
 
-        createChatMetadataModelsWhatsapp(map, chatMetadataList)
+            val map = createParticipantsMap()
 
-        chatDatabase.clearChat()
+            createChatMetadataModelsWhatsapp(map)
 
-        chatMetadataList.forEach {
-            chatDatabase.addChatMetadata(it)
+            chatDatabase.clearChatWhatsapp()
 
-            val chatData = getChatData(it)
+            chatMetadataList
+                .filter { it.chatSource == ChatSources.SOURCE_WHATSAPP }
+                .forEach {
+                    chatDatabase.addChatMetadata(it)
 
-            runBlocking {
-                chatDatabase.addChatData(chatData)
+                    val chatData = getChatData(it)
+
+                    runBlocking {
+                        chatDatabase.addChatData(chatData)
+                    }
+                }
+
+            withContext(Dispatchers.Main) {
+                val btn = findViewById<Button>(R.id.btnScanDB)
+                btn.text = "Scan DB"
+                btn.isEnabled = true
+                adapter.notifyDataSetChanged()
+                Toast.makeText(
+                    applicationContext,
+                    "Database Created!",
+                    Toast.LENGTH_SHORT
+                ).show()
+                scanning = false
             }
         }
+
     }
 
     private fun getChatData(chatMetadata: ChatMetadataModel) : List<ChatDataModel> {
@@ -507,7 +534,8 @@ class MainActivity : AppCompatActivity() {
                                 mediaName ?: "",
                                 mediaCaption?.toString() ?: "",
                                 mediaFound,
-                                mediaURI
+                                mediaURI,
+                                ChatSources.SOURCE_WHATSAPP
                             )
                         )
                     } while (curr.moveToNext())
@@ -541,8 +569,7 @@ class MainActivity : AppCompatActivity() {
         return participantsMap
     }
 
-    private fun createChatMetadataModelsWhatsapp(participants: Map<String, String>, chatModels: MutableList<ChatMetadataModel>){
-        chatModels.clear()
+    private fun createChatMetadataModelsWhatsapp(participants: Map<String, String>){
         val query =
             "SELECT " +
                     "key_remote_jid, " +
@@ -553,6 +580,8 @@ class MainActivity : AppCompatActivity() {
                     "" +
                     "ORDER BY COUNT(key_remote_jid) DESC"
 
+        chatMetadataList.filter { it.chatSource == ChatSources.SOURCE_WHATSAPP }.forEach { chatMetadataList.remove(it) }
+
         SQLiteDatabase.openOrCreateDatabase(File(filesDir, DATABASE_MSGSTORE), null).use { msgstoreDB ->
             msgstoreDB.rawQuery(query, null).use {
                 if (it.moveToFirst()) {
@@ -562,7 +591,7 @@ class MainActivity : AppCompatActivity() {
                         val mediaCount = it.getInt(2)
                         val chatName = participants[chatID] ?: getPhoneNumberOrID(chatID)
                         val chat =
-                            ChatMetadataModel(chatID, chatName, chatCount, mediaCount, 0)
+                            ChatMetadataModel(chatID, chatName, chatCount, mediaCount, 0, ChatSources.SOURCE_WHATSAPP)
 
                         val participantsQuery =
                             "SELECT DISTINCT(remote_resource) FROM messages WHERE key_remote_jid='$chatID' AND remote_resource != ''"
@@ -579,7 +608,7 @@ class MainActivity : AppCompatActivity() {
                                 } while (curr.moveToNext())
                             }
                         }
-                        chatModels.add(chat)
+                        chatMetadataList.add(chat)
                     } while (it.moveToNext())
                 }
             }
@@ -591,7 +620,7 @@ class MainActivity : AppCompatActivity() {
     //region Create ChatMetadata : FB
 
     @SuppressLint("NotifyDataSetChanged", "SetTextI18n")
-    private fun scanFB(myFBName : String){
+    private fun scanFB(myFBName: String){
         var folderScanSuccess = false
 
         GlobalScope.launch {
@@ -599,11 +628,11 @@ class MainActivity : AppCompatActivity() {
                 val btn = findViewById<Button>(R.id.btnScanFB)
                 btn.isEnabled = false
                 btn.text = "Scanning..."
+                scanning = true
             }
 
             val chatFolders = scanFBChatFolder()
 
-            class FBChatData(val chatMetadata: ChatMetadataModel, val chats : List<ChatDataModel>)
             val chatList = mutableListOf<FBChatData>()
 
             if(chatFolders.isNotEmpty()){
@@ -612,6 +641,8 @@ class MainActivity : AppCompatActivity() {
                     val (chatMetadata, chats) = createChatMetadataFB(chatFiles, myFBName)
                     chatList.add(FBChatData(chatMetadata, chats))
                 }
+
+                chatMetadataList.filter { it.chatSource == ChatSources.SOURCE_FB }.forEach { chatMetadataList.remove(it) }
 
                 chatList.forEach{
                     chatMetadataList.add(it.chatMetadata)
@@ -642,6 +673,8 @@ class MainActivity : AppCompatActivity() {
 
             if(folderScanSuccess){
 
+                chatDatabase.clearChatWhatsapp()
+
                 chatList.forEach{
                     chatDatabase.addChatMetadata(it.chatMetadata)
                     chatDatabase.addChatData(it.chats)
@@ -654,7 +687,6 @@ class MainActivity : AppCompatActivity() {
                 val btn = findViewById<Button>(R.id.btnScanFB)
                 btn.text = "Scan FB"
                 btn.isEnabled = true
-
                 if(chatAddedToDBSuccess){
                     Toast.makeText(
                         applicationContext,
@@ -662,6 +694,7 @@ class MainActivity : AppCompatActivity() {
                         Toast.LENGTH_SHORT
                     ).show()
                 }
+                scanning = false
             }
         }
     }
@@ -677,27 +710,30 @@ class MainActivity : AppCompatActivity() {
         return chatFolders
     }
 
-    private fun scanFBChat(chatFolder : File) : List<Map<String, Any?>> {
+    private fun scanFBChat(chatFolder: File) : List<Map<String, Any?>> {
         val chats = mutableListOf<Map<String, Any?>>()
         chatFolder.listFiles()?.forEach { file ->
             if (file.extension == "json") {
-                chats.add(JSONObject(file.readText()).toMap())
+                val fileContent = file.reader(Charsets.ISO_8859_1).readText()
+                chats.add(JSONObject(fileContent).toMap())
             }
         }
         return chats
     }
 
-    private fun createChatMetadataFB(chats: List<Map<String, Any?>>, myFBName : String) : Pair<ChatMetadataModel, List<ChatDataModel>> {
+    private fun createChatMetadataFB(chats: List<Map<String, Any?>>, myFBName: String) : Pair<ChatMetadataModel, List<ChatDataModel>> {
         val chatList = mutableListOf<ChatDataModel>()
 
         val sampleChat = chats[0]
-        val (chatID)= Regex(".*/(.*)$").find(sampleChat["thread_path"] as String)!!.destructured
+        val (chatID) = Regex(".*/(.*)$").find(sampleChat["thread_path"] as String)!!.destructured
         val chatName = sampleChat["title"] as String
         val chatParticipants = mutableMapOf<String, String>()
         (sampleChat["participants"] as List<Any?>).forEach { participant ->
             val participantName = (participant as Map<*, *>)["name"] as String
-            val participantKey = participantName + "_" + chatID
-            chatParticipants[participantKey] = participantName
+            if (participantName != myFBName) {
+                val participantKey = participantName + "_" + chatID
+                chatParticipants[participantKey] = participantName
+            }
         }
 
         var chatCount = 0
@@ -706,13 +742,13 @@ class MainActivity : AppCompatActivity() {
 
         chats.forEach{ chatMap ->
             (chatMap["messages"] as List<*>)
-                .map { message -> message as Map<*,*> }
+                .map { message -> message as Map<*, *> }
                 .forEach { message ->
                     val sender = message["sender_name"] as String
-                    val participantKey = sender + "_" + chatID
+                    val participantKey = "$sender@$chatID"
                     chatParticipants[participantKey] = sender
 
-                    val chatContent = if ("content" in message.keys) { message["content"] as String } else { "" }
+                    val chatContent = if ("content" in message.keys) { (message["content"] as String).getDecodedContent() } else { "" }
                     val timestamp = Timestamp(message["timestamp_ms"] as Long)
 
                     val mediaKey = when {
@@ -731,7 +767,7 @@ class MainActivity : AppCompatActivity() {
                             if (message[mediaKey] is List<*>)
                                 message[mediaKey] as List<*>
                             else listOf(message[mediaKey])
-                        mediaList.map { it -> it as Map<*, *> }.forEach { media ->
+                        mediaList.map { it as Map<*, *> }.forEach { media ->
                             val mediaFile = File(fbChatFolderLocation, media["uri"] as String)
 
                             chatCount += 1
@@ -739,14 +775,14 @@ class MainActivity : AppCompatActivity() {
 
                             if(mediaFile.exists()) {
                                 val mediaFound = true
+                                mediaFoundCount += 1
+
                                 val mediaUri = GenericFileProvider.getUriForFile(
                                     this,
                                     applicationContext.packageName,
                                     mediaFile
                                 )
                                 val mediaName = mediaFile.name
-
-                                mediaFoundCount += 1
 
                                 chatList.add(
                                     ChatDataModel(
@@ -757,9 +793,10 @@ class MainActivity : AppCompatActivity() {
                                         participantKey,
                                         hasMedia,
                                         mediaName,
-                                        chatContent,
+                                        chatContent, //same for each media file
                                         mediaFound,
-                                        mediaUri
+                                        mediaUri,
+                                        ChatSources.SOURCE_FB
                                     )
                                 )
                             }
@@ -775,7 +812,8 @@ class MainActivity : AppCompatActivity() {
                                         "",
                                         chatContent,
                                         false,
-                                        Uri.EMPTY
+                                        Uri.EMPTY,
+                                        ChatSources.SOURCE_FB
                                     )
                                 )
                             }
@@ -794,7 +832,8 @@ class MainActivity : AppCompatActivity() {
                                 "",
                                 "",
                                 false,
-                                Uri.EMPTY
+                                Uri.EMPTY,
+                                ChatSources.SOURCE_FB
                             )
                         )
                     }
@@ -806,11 +845,18 @@ class MainActivity : AppCompatActivity() {
             chatName,
             chatCount,
             mediaCount,
-            mediaFoundCount
+            mediaFoundCount,
+            ChatSources.SOURCE_FB
         )
-        chatMetadata.chatParticipants = chatParticipants
+        if(chatParticipants.size > 1) {
+            chatMetadata.chatParticipants = chatParticipants
+        }
 
         return Pair(chatMetadata, chatList)
+    }
+
+    private fun String.getDecodedContent() : String{
+        return String(this.toByteArray(Charsets.ISO_8859_1))
     }
 
 
@@ -821,6 +867,10 @@ class MainActivity : AppCompatActivity() {
     fun onParticipantSelection(selectionMode: Boolean) {
         chatSelected = selectionMode
         toggleSelectionOperations()
+    }
+
+    fun isScanning() : Boolean {
+        return scanning
     }
 
     private fun toggleSelectionOperations(){

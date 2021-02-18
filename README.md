@@ -9,7 +9,7 @@ And it can do the same with Facebook chat as well!
 <h3>DISCLAIMER</h3> This is basically my first ever android project, at least in Kotlin. Made it in order to learn the language. So this doesn't abide by any sort of best practices. Also it is really finicky. And has some memory leaks and other nice "features". But hey! If it works...
 
 <h3>File Access Permission</h3>
-One of the "bad" practices in this app is the file access permission. In my (very brief) experience, file system access in Android is an absolute hot mess. I resorted to asking for full storage permission, which is in fact deprecated. And might not even work in Android R. If the app doesn't ask for the permission, please allow it manually in the device settings.
+One of the "bad" practices in this app is the file access permission. In my (very brief) experience, file system access in Android is an absolute hot mess. I resorted to asking for full storage permission, which is in fact deprecated. And might not even work in Android R. If the app doesn't ask for the permission or in case it crashes every time, please manually allow full file access permision in the device settings.
 
 <h5>Before you upload</h5>
 Also keep in mind that Telegram will import <b>all</b> the chats at the very end of your target chat. It will <b>not</b> mix up the old chats with the imported chats based on timestamp. Hence I would strongly suggest that you create some empty groups and import into them.

@@ -8,12 +8,13 @@
         <entry key="..\:/Users/AritraLappy/AndroidStudioProjects/GreenToBlue/app/src/main/res/drawable/ic_launcher_background.xml" value="0.20052083333333334" />
         <entry key="..\:/Users/AritraLappy/AndroidStudioProjects/GreenToBlue/app/src/main/res/drawable/share_vector.xml" value="0.20052083333333334" />
         <entry key="..\:/Users/AritraLappy/AndroidStudioProjects/GreenToBlue/app/src/main/res/layout/activity_chat_export.xml" value="0.36614583333333334" />
-        <entry key="..\:/Users/AritraLappy/AndroidStudioProjects/GreenToBlue/app/src/main/res/layout/activity_main.xml" value="0.25" />
-        <entry key="..\:/Users/AritraLappy/AndroidStudioProjects/GreenToBlue/app/src/main/res/layout/dialog_select_directory.xml" value="0.2" />
-        <entry key="..\:/Users/AritraLappy/AndroidStudioProjects/GreenToBlue/app/src/main/res/layout/listviewitem_chat_metadata.xml" value="0.6140350877192983" />
-        <entry key="..\:/Users/AritraLappy/AndroidStudioProjects/GreenToBlue/app/src/main/res/layout/listviewitem_chunk.xml" value="0.2635416666666667" />
-        <entry key="..\:/Users/AritraLappy/AndroidStudioProjects/GreenToBlue/app/src/main/res/layout/listviewitem_directory.xml" value="0.2" />
-        <entry key="..\:/Users/AritraLappy/AndroidStudioProjects/GreenToBlue/app/src/main/res/layout/listviewitem_participant.xml" value="0.2203125" />
+        <entry key="..\:/Users/AritraLappy/AndroidStudioProjects/GreenToBlue/app/src/main/res/layout/activity_main.xml" value="0.2390625" />
+        <entry key="..\:/Users/AritraLappy/AndroidStudioProjects/GreenToBlue/app/src/main/res/layout/dialog_fb_my_name.xml" value="0.19270833333333334" />
+        <entry key="..\:/Users/AritraLappy/AndroidStudioProjects/GreenToBlue/app/src/main/res/layout/dialog_select_directory.xml" value="0.35052083333333334" />
+        <entry key="..\:/Users/AritraLappy/AndroidStudioProjects/GreenToBlue/app/src/main/res/layout/listviewitem_chat_metadata.xml" value="0.5" />
+        <entry key="..\:/Users/AritraLappy/AndroidStudioProjects/GreenToBlue/app/src/main/res/layout/listviewitem_chunk.xml" value="0.35052083333333334" />
+        <entry key="..\:/Users/AritraLappy/AndroidStudioProjects/GreenToBlue/app/src/main/res/layout/listviewitem_directory.xml" value="0.35052083333333334" />
+        <entry key="..\:/Users/AritraLappy/AndroidStudioProjects/GreenToBlue/app/src/main/res/layout/listviewitem_participant.xml" value="0.35052083333333334" />
       </map>
     </option>
   </component>

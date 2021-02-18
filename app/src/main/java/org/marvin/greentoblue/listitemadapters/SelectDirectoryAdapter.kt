@@ -1,6 +1,7 @@
 package org.marvin.greentoblue.listitemadapters
 
 import android.annotation.SuppressLint
+import android.os.Environment
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
@@ -27,12 +28,13 @@ class SelectDirectoryAdapter(var currentDirectory : String) : RecyclerView.Adapt
     @SuppressLint("NotifyDataSetChanged")
     fun listFolders(){
         folders.clear()
-        folders.add(Folder("(Go Up)", "", true))
         File(currentDirectory).listFiles()?.forEach {
             if(it.isDirectory){
                 folders.add(Folder(it.name, it.absolutePath))
             }
         }
+        folders.sortBy { it.folderName }
+        folders.add(0, Folder("(Go Up)", "", true))
         notifyDataSetChanged()
     }
 
@@ -49,18 +51,20 @@ class SelectDirectoryAdapter(var currentDirectory : String) : RecyclerView.Adapt
     override fun onBindViewHolder(holder: SelectDirectoryViewHolder, position: Int) {
         holder.txtDirectoryName.text = folders[position].folderName
         holder.itemView.setOnClickListener{
+            val root = Environment.getExternalStorageDirectory().absolutePath
             val folder = folders[position]
             if(folder.isParent){
-                val parent = File(currentDirectory).parent
-                if(!parent.isNullOrEmpty()) {
-                    currentDirectory = parent
-                    listFolders()
+                if (currentDirectory != root){
+                    val parent = File(currentDirectory).parent
+                    if(!parent.isNullOrEmpty()) {
+                        currentDirectory = parent
+                        listFolders()
+                    }
                 }
             } else {
                 currentDirectory = folders[position].folderPath
                 listFolders()
             }
-
         }
     }
 

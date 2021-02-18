@@ -16,14 +16,16 @@ import android.os.Environment
 import android.util.Base64
 import android.util.Log
 import android.widget.Button
+import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.documentfile.provider.DocumentFile
 import androidx.preference.PreferenceManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import kotlinx.coroutines.*
+import org.json.JSONArray
+import org.json.JSONObject
 import org.marvin.greentoblue.listitemadapters.ChatMetadataAdapter
 import org.marvin.greentoblue.listitemadapters.SelectDirectoryAdapter
 import org.marvin.greentoblue.models.ChatDataModel
@@ -36,29 +38,36 @@ import java.sql.Timestamp
 
 class MainActivity : AppCompatActivity() {
     companion object{
-        private var MSGSTORE_LOCATION_REQUEST_CODE = 1
-        private var WA_LOCATION_REQUEST_CODE = 2
-        private var MEDIA_LOCATION_REQUEST_CODE = 3
-        private var REQUEST_PERMISSION_REQUEST_CODE = 4
+        private const val MSGSTORE_LOCATION_REQUEST_CODE = 1
+        private const val WA_LOCATION_REQUEST_CODE = 2
+        private const val REQUEST_PERMISSION_REQUEST_CODE = 3
 
-        private var CHAT_METADATA_RESULT_CODE = 100
+        private const val CHAT_METADATA_RESULT_CODE = 100
 
-        private var INTENT_CHAT_METADATA = "chatmetadata"
+        private const val INTENT_CHAT_METADATA = "chatmetadata"
 
-        private var PREF_MEDIA_LOCATION = "medialocation"
+        private const val PREF_MEDIA_LOCATION = "medialocation"
+        private const val PREF_FB_CHAT_LOCATION = "fbchatlocation"
         private val MEDIA_LOCATION_DEFAULT = Environment.getExternalStorageDirectory().absolutePath + "/Whatsapp/Media/"
 
-        private var DATABASE_MSGSTORE = "msgstore.db"
-        private var DATABASE_WA = "wa.db"
+        private const val DATABASE_MSGSTORE = "msgstore.db"
+        private const val DATABASE_WA = "wa.db"
     }
+
+    //region Private Variables
 
     private lateinit var chatDatabase: ChatDatabaseAdapter
     private lateinit var adapter : ChatMetadataAdapter
+
     private var mediaFolderLocation = ""
+    private var fbChatFolderLocation = ""
+
     private var mediaFiles = mutableListOf<MediaModel>()
     private var chatMetadataList = mutableListOf<ChatMetadataModel>()
 
     private var chatSelected = false
+
+    //endregion
 
     //region Initialization
 
@@ -67,6 +76,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         mediaFolderLocation = PreferenceManager.getDefaultSharedPreferences(this).getString(PREF_MEDIA_LOCATION, MEDIA_LOCATION_DEFAULT)!!
+        fbChatFolderLocation = PreferenceManager.getDefaultSharedPreferences(this).getString(PREF_FB_CHAT_LOCATION, "")!!
 
         addOnClickListeners()
 
@@ -92,9 +102,14 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    @SuppressLint("NotifyDataSetChanged", "SetTextI18n")
     private fun addOnClickListeners() {
+        addOnClickListenersWhatsapp()
+        addOnClickListenersFB()
+        addOnClickListenersEditChatMetadata()
+    }
 
+    @SuppressLint("NotifyDataSetChanged", "SetTextI18n")
+    private fun addOnClickListenersWhatsapp() {
         findViewById<Button>(R.id.btnMsgStore).setOnClickListener {
             val msgStoreIntent =
                 Intent().setType("application/*").setAction(Intent.ACTION_GET_CONTENT)
@@ -116,7 +131,6 @@ class MainActivity : AppCompatActivity() {
 
         findViewById<Button>(R.id.btnMedia).setOnClickListener {
             val dialog = Dialog(this)
-            //dialog.requestWindowFeature(Window.)
             dialog.setTitle("Select Media Directory")
             dialog.setCancelable(true)
             dialog.setContentView(R.layout.dialog_select_directory)
@@ -126,10 +140,10 @@ class MainActivity : AppCompatActivity() {
 
             dialog.window?.setLayout(width, height)
 
-            val adapter = SelectDirectoryAdapter(mediaFolderLocation)
+            val directoryAdapter = SelectDirectoryAdapter(mediaFolderLocation)
 
             val lstDirectory: RecyclerView = dialog.findViewById(R.id.lstDirectory)
-            lstDirectory.adapter = adapter
+            lstDirectory.adapter = directoryAdapter
             lstDirectory.layoutManager = LinearLayoutManager(this)
             lstDirectory.setHasFixedSize(true)
 
@@ -154,9 +168,7 @@ class MainActivity : AppCompatActivity() {
 
             dialog.show()
 
-            adapter.listFolders()
-
-
+            directoryAdapter.listFolders()
         }
 
         findViewById<Button>(R.id.btnScanMedia).setOnClickListener {
@@ -214,6 +226,90 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+    }
+
+    @SuppressLint("NotifyDataSetChanged", "SetTextI18n")
+    private fun addOnClickListenersFB() {
+        findViewById<Button>(R.id.btnFBChatBackup).setOnClickListener {
+            val dialog = Dialog(this)
+            dialog.setTitle("Select FB Chat Backup Directory")
+            dialog.setCancelable(true)
+            dialog.setContentView(R.layout.dialog_select_directory)
+
+            val width = (resources.displayMetrics.widthPixels * 0.90).toInt()
+            val height = (resources.displayMetrics.heightPixels * 0.90).toInt()
+
+            dialog.window?.setLayout(width, height)
+
+            val directoryAdapter = SelectDirectoryAdapter(mediaFolderLocation)
+
+            val lstDirectory: RecyclerView = dialog.findViewById(R.id.lstDirectory)
+            lstDirectory.adapter = directoryAdapter
+            lstDirectory.layoutManager = LinearLayoutManager(this)
+            lstDirectory.setHasFixedSize(true)
+
+            val btnSelectDirectory: Button = dialog.findViewById(R.id.btnSelectDirectory)
+            val btnCancelDirectorySelection: Button =
+                dialog.findViewById(R.id.btnCancelDirectorySelection)
+
+            btnCancelDirectorySelection.setOnClickListener {
+                dialog.dismiss()
+            }
+
+            btnSelectDirectory.setOnClickListener {
+                val selectedFBDirectory =
+                    (lstDirectory.adapter as SelectDirectoryAdapter).currentDirectory
+                fbChatFolderLocation = selectedFBDirectory
+
+                if(fbChatFolderLocation.endsWith("messages")){
+                    fbChatFolderLocation = File(fbChatFolderLocation).parent!!
+                }
+                println(fbChatFolderLocation)
+                PreferenceManager.getDefaultSharedPreferences(this)
+                    .edit()
+                    .putString(PREF_FB_CHAT_LOCATION, fbChatFolderLocation)
+                    .apply()
+                dialog.dismiss()
+            }
+
+            dialog.show()
+
+            directoryAdapter.listFolders()
+        }
+
+        findViewById<Button>(R.id.btnScanFB).setOnClickListener {
+            val dialog = Dialog(this)
+            dialog.setTitle("Select FB Chat Backup Directory")
+            dialog.setCancelable(false)
+            dialog.setContentView(R.layout.dialog_fb_my_name)
+
+            val width = (resources.displayMetrics.widthPixels * 0.90).toInt()
+            val height = (resources.displayMetrics.heightPixels * 0.15).toInt()
+
+            dialog.window?.setLayout(width, height)
+
+            dialog.findViewById<Button>(R.id.btnOkMyNameFB).setOnClickListener {
+                val myName = dialog.findViewById<EditText>(R.id.editTxtMyNameFB).text.toString().trim()
+                if(myName.isNotEmpty()){
+                    dialog.dismiss()
+                    scanFB(myName)
+                } else {
+                    Toast.makeText(this, "Name Cannot Be Empty!", Toast.LENGTH_SHORT).show()
+                }
+            }
+
+            dialog.findViewById<Button>(R.id.btnCancelMyNameFB).setOnClickListener {
+                Toast.makeText(this, "Cannot Scan FB Chat Without Your Name!", Toast.LENGTH_SHORT).show()
+                dialog.dismiss()
+            }
+
+            dialog.show()
+
+        }
+    }
+
+    @SuppressLint("NotifyDataSetChanged", "SetTextI18n")
+    private fun addOnClickListenersEditChatMetadata() {
         findViewById<Button>(R.id.btnCancelChatSelection).setOnClickListener {
             adapter.cancelSelection()
         }
@@ -288,20 +384,6 @@ class MainActivity : AppCompatActivity() {
                 WA_LOCATION_REQUEST_CODE -> {
                     data?.data?.let { selectedFile -> copyDBFile(selectedFile, DATABASE_WA) }
                 }
-                MEDIA_LOCATION_REQUEST_CODE -> {
-                    data?.data?.let {
-                        DocumentFile.fromTreeUri(this, it)?.let { mediaDir ->
-                            if (mediaDir.canRead()) {
-                                val takeFlags = data.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION
-                                contentResolver.takePersistableUriPermission(it, takeFlags)
-                                PreferenceManager.getDefaultSharedPreferences(this)
-                                    .edit()
-                                    .putString(PREF_MEDIA_LOCATION, it.toString())
-                                    .apply()
-                            }
-                        }
-                    }
-                }
                 REQUEST_PERMISSION_REQUEST_CODE -> {
                     Log.d("PERMISSION", "GRANTED!")
                 }
@@ -312,36 +394,6 @@ class MainActivity : AppCompatActivity() {
         } else if( resultCode == CHAT_METADATA_RESULT_CODE ){
             data?.getParcelableExtra<ChatMetadataModel>(INTENT_CHAT_METADATA)?.let {
                 adapter.updateChatMetadata(it)
-            }
-        }
-    }
-
-    private fun hasPermission(): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            PackageManager.PERMISSION_GRANTED == checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-        } else {
-            true
-        }
-    }
-
-    private fun askPermissions() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            val externalPerms = arrayOf(
-                Manifest.permission.WRITE_EXTERNAL_STORAGE,
-                Manifest.permission.READ_EXTERNAL_STORAGE
-            )
-            requestPermissions(externalPerms, REQUEST_PERMISSION_REQUEST_CODE)
-        }
-    }
-
-    private fun copyDBFile(selectedFile: Uri, fileName: String) {
-        openFileOutput(fileName, Context.MODE_PRIVATE).use { outputStream ->
-            application.contentResolver.openInputStream(selectedFile)?.let { inputStream ->
-                val buff = ByteArray(2048)
-                var read: Int
-                while (inputStream.read(buff, 0, buff.size).also { read = it } > 0) {
-                    outputStream.write(buff, 0, read)
-                }
             }
         }
     }
@@ -363,25 +415,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun scanMediaDir(mediaLoc: File, mediaFiles: MutableList<MediaModel>) {
-        fun hashFile(file: File): String {
-            val md = MessageDigest.getInstance("SHA-256")
-            val buffer = ByteArray(1024)
-            file.inputStream().buffered(1024).use {
-                while (true) {
-                    val bytesRead = it.read(buffer)
-                    if (bytesRead < 0) break
-                    md.update(buffer, 0, bytesRead)
-                }
-            }
-            return Base64.encodeToString(md.digest(), Base64.DEFAULT)
-        }
-
-        fun getMediaModel(file: File): MediaModel {
-            val hash = hashFile(file)
-            val uri = GenericFileProvider.getUriForFile(this, applicationContext.packageName, file)
-            return MediaModel(file.name, file.absolutePath, uri, hash)
-        }
-
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             mediaLoc.walk()
                 .toList()
@@ -395,14 +428,20 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun getMediaModel(file: File): MediaModel {
+        val hash = hashFile(file)
+        val uri = GenericFileProvider.getUriForFile(this, applicationContext.packageName, file)
+        return MediaModel(file.name, file.absolutePath, uri, hash)
+    }
+
     //endregion
 
-    //region Create ChatMetadata
+    //region Create ChatMetadata : Whatsapp
 
     private fun scanDatabase() {
         val map = createParticipantsMap()
 
-        createChatMetadataModels(map, chatMetadataList)
+        createChatMetadataModelsWhatsapp(map, chatMetadataList)
 
         chatDatabase.clearChat()
 
@@ -480,22 +519,6 @@ class MainActivity : AppCompatActivity() {
         return chats
     }
 
-    private fun databasesExist(): Boolean {
-        return if (File(filesDir, DATABASE_MSGSTORE).exists()) {
-            if (File(filesDir, DATABASE_WA).exists()) {
-                true
-            } else {
-                Log.d("ERROR", "$DATABASE_WA Doesn't Exist")
-                Toast.makeText(this, "Please locate $DATABASE_WA", Toast.LENGTH_SHORT).show()
-                false
-            }
-        } else {
-            Log.d("ERROR", "$DATABASE_MSGSTORE Doesn't Exist")
-            Toast.makeText(this, "Please locate $DATABASE_MSGSTORE", Toast.LENGTH_SHORT).show()
-            false
-        }
-    }
-
     private fun createParticipantsMap(): MutableMap<String, String> {
         val participantsMap = mutableMapOf<String, String>()
         SQLiteDatabase.openOrCreateDatabase(File(filesDir, DATABASE_WA), null).use { db ->
@@ -518,19 +541,7 @@ class MainActivity : AppCompatActivity() {
         return participantsMap
     }
 
-    private fun getPhoneNumberOrID(jid: String): String {
-        val re = Regex("(.*)@(.*)")
-        var sender = jid
-        re.find(jid)?.let { result ->
-            sender = result.groupValues[1]
-        }
-        return sender
-    }
-
-    private fun createChatMetadataModels(
-        participants: Map<String, String>,
-        chatModels: MutableList<ChatMetadataModel>
-    ){
+    private fun createChatMetadataModelsWhatsapp(participants: Map<String, String>, chatModels: MutableList<ChatMetadataModel>){
         chatModels.clear()
         val query =
             "SELECT " +
@@ -577,6 +588,234 @@ class MainActivity : AppCompatActivity() {
 
     //endregion
 
+    //region Create ChatMetadata : FB
+
+    @SuppressLint("NotifyDataSetChanged", "SetTextI18n")
+    private fun scanFB(myFBName : String){
+        var folderScanSuccess = false
+
+        GlobalScope.launch {
+            withContext(Dispatchers.Main) {
+                val btn = findViewById<Button>(R.id.btnScanFB)
+                btn.isEnabled = false
+                btn.text = "Scanning..."
+            }
+
+            val chatFolders = scanFBChatFolder()
+
+            class FBChatData(val chatMetadata: ChatMetadataModel, val chats : List<ChatDataModel>)
+            val chatList = mutableListOf<FBChatData>()
+
+            if(chatFolders.isNotEmpty()){
+                chatFolders.forEach{ chatFolder ->
+                    val chatFiles = scanFBChat(chatFolder)
+                    val (chatMetadata, chats) = createChatMetadataFB(chatFiles, myFBName)
+                    chatList.add(FBChatData(chatMetadata, chats))
+                }
+
+                chatList.forEach{
+                    chatMetadataList.add(it.chatMetadata)
+                }
+                chatMetadataList.sortByDescending { it.chatCount }
+
+                folderScanSuccess = true
+            }
+
+            withContext(Dispatchers.Main) {
+                if(folderScanSuccess){
+                    adapter.notifyDataSetChanged()
+                    Toast.makeText(
+                        applicationContext,
+                        "FB Data Scanned. Writing to Database!",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                } else {
+                    Toast.makeText(
+                        applicationContext,
+                        "Please Select FB Chat Folder!",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+
+            var chatAddedToDBSuccess = false
+
+            if(folderScanSuccess){
+
+                chatList.forEach{
+                    chatDatabase.addChatMetadata(it.chatMetadata)
+                    chatDatabase.addChatData(it.chats)
+                }
+
+                chatAddedToDBSuccess = true
+            }
+
+            withContext(Dispatchers.Main){
+                val btn = findViewById<Button>(R.id.btnScanFB)
+                btn.text = "Scan FB"
+                btn.isEnabled = true
+
+                if(chatAddedToDBSuccess){
+                    Toast.makeText(
+                        applicationContext,
+                        "FB Chat Scanning Done!",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        }
+    }
+
+    private fun scanFBChatFolder() : List<File> {
+        val chatFolders = arrayListOf<File>()
+        File(fbChatFolderLocation)
+            .listFiles()
+            ?.find { it.name == "messages" }
+            ?.listFiles()
+            ?.filter { it.name == "inbox" || it.name == "archived_threads" }
+            ?.forEach { file -> file.listFiles()?.also { chatFolders.addAll(it) } }
+        return chatFolders
+    }
+
+    private fun scanFBChat(chatFolder : File) : List<Map<String, Any?>> {
+        val chats = mutableListOf<Map<String, Any?>>()
+        chatFolder.listFiles()?.forEach { file ->
+            if (file.extension == "json") {
+                chats.add(JSONObject(file.readText()).toMap())
+            }
+        }
+        return chats
+    }
+
+    private fun createChatMetadataFB(chats: List<Map<String, Any?>>, myFBName : String) : Pair<ChatMetadataModel, List<ChatDataModel>> {
+        val chatList = mutableListOf<ChatDataModel>()
+
+        val sampleChat = chats[0]
+        val (chatID)= Regex(".*/(.*)$").find(sampleChat["thread_path"] as String)!!.destructured
+        val chatName = sampleChat["title"] as String
+        val chatParticipants = mutableMapOf<String, String>()
+        (sampleChat["participants"] as List<Any?>).forEach { participant ->
+            val participantName = (participant as Map<*, *>)["name"] as String
+            val participantKey = participantName + "_" + chatID
+            chatParticipants[participantKey] = participantName
+        }
+
+        var chatCount = 0
+        var mediaCount = 0
+        var mediaFoundCount = 0
+
+        chats.forEach{ chatMap ->
+            (chatMap["messages"] as List<*>)
+                .map { message -> message as Map<*,*> }
+                .forEach { message ->
+                    val sender = message["sender_name"] as String
+                    val participantKey = sender + "_" + chatID
+                    chatParticipants[participantKey] = sender
+
+                    val chatContent = if ("content" in message.keys) { message["content"] as String } else { "" }
+                    val timestamp = Timestamp(message["timestamp_ms"] as Long)
+
+                    val mediaKey = when {
+                        "audio_files" in message.keys -> "audio_files"
+                        "files" in message.keys -> "files"
+                        "gifs" in message.keys -> "gifs"
+                        "photos" in message.keys -> "photos"
+                        "sticker" in message.keys -> "sticker"
+                        "videos" in message.keys -> "videos"
+                        else -> ""
+                    }
+                    val hasMedia = mediaKey.isNotEmpty()
+
+                    if(hasMedia) {
+                        val mediaList =
+                            if (message[mediaKey] is List<*>)
+                                message[mediaKey] as List<*>
+                            else listOf(message[mediaKey])
+                        mediaList.map { it -> it as Map<*, *> }.forEach { media ->
+                            val mediaFile = File(fbChatFolderLocation, media["uri"] as String)
+
+                            chatCount += 1
+                            mediaCount += 1
+
+                            if(mediaFile.exists()) {
+                                val mediaFound = true
+                                val mediaUri = GenericFileProvider.getUriForFile(
+                                    this,
+                                    applicationContext.packageName,
+                                    mediaFile
+                                )
+                                val mediaName = mediaFile.name
+
+                                mediaFoundCount += 1
+
+                                chatList.add(
+                                    ChatDataModel(
+                                        chatID,
+                                        timestamp,
+                                        "",
+                                        myFBName == sender,
+                                        participantKey,
+                                        hasMedia,
+                                        mediaName,
+                                        chatContent,
+                                        mediaFound,
+                                        mediaUri
+                                    )
+                                )
+                            }
+                            else {
+                                chatList.add(
+                                    ChatDataModel(
+                                        chatID,
+                                        timestamp,
+                                        "",
+                                        myFBName == sender,
+                                        participantKey,
+                                        hasMedia,
+                                        "",
+                                        chatContent,
+                                        false,
+                                        Uri.EMPTY
+                                    )
+                                )
+                            }
+                        }
+                    }
+                    else{
+                        chatCount += 1
+                        chatList.add(
+                            ChatDataModel(
+                                chatID,
+                                timestamp,
+                                chatContent,
+                                myFBName == sender,
+                                participantKey,
+                                false,
+                                "",
+                                "",
+                                false,
+                                Uri.EMPTY
+                            )
+                        )
+                    }
+                }
+            }
+
+        val chatMetadata = ChatMetadataModel(
+            chatID,
+            chatName,
+            chatCount,
+            mediaCount,
+            mediaFoundCount
+        )
+        chatMetadata.chatParticipants = chatParticipants
+
+        return Pair(chatMetadata, chatList)
+    }
+
+
+    //endregion
+
     //region Edit ChatMetadata (Merge and Delete)
 
     fun onParticipantSelection(selectionMode: Boolean) {
@@ -595,6 +834,106 @@ class MainActivity : AppCompatActivity() {
         }
         else {
             super.onBackPressed()
+        }
+    }
+
+    //endregion
+
+    //region Helper Methods
+
+    private fun JSONObject.toMap() : Map<String, Any?> {
+        val map = mutableMapOf<String, Any?>()
+        this.keys().forEach { key ->
+            var obj = this.get(key)
+            if(obj is JSONArray){
+                obj = obj.toList()
+            } else if (obj is JSONObject){
+                obj = obj.toMap()
+            }
+            map[key] = obj
+        }
+        return map
+    }
+
+    private fun JSONArray.toList() : List<Any?>{
+        val list = mutableListOf<Any?>()
+        for(i in 0 until this.length()){
+            var obj = this.get(i)
+            if(obj is JSONArray){
+                obj = obj.toList()
+            } else if(obj is JSONObject){
+                obj = obj.toMap()
+            }
+            list.add(obj)
+        }
+        return list
+    }
+
+    private fun hashFile(file: File): String {
+        val md = MessageDigest.getInstance("SHA-256")
+        val buffer = ByteArray(1024)
+        file.inputStream().buffered(1024).use {
+            while (true) {
+                val bytesRead = it.read(buffer)
+                if (bytesRead < 0) break
+                md.update(buffer, 0, bytesRead)
+            }
+        }
+        return Base64.encodeToString(md.digest(), Base64.DEFAULT)
+    }
+
+    private fun getPhoneNumberOrID(jid: String): String {
+        val re = Regex("(.*)@(.*)")
+        var sender = jid
+        re.find(jid)?.let { result ->
+            sender = result.groupValues[1]
+        }
+        return sender
+    }
+
+    private fun databasesExist(): Boolean {
+        return if (File(filesDir, DATABASE_MSGSTORE).exists()) {
+            if (File(filesDir, DATABASE_WA).exists()) {
+                true
+            } else {
+                Log.d("ERROR", "$DATABASE_WA Doesn't Exist")
+                Toast.makeText(this, "Please locate $DATABASE_WA", Toast.LENGTH_SHORT).show()
+                false
+            }
+        } else {
+            Log.d("ERROR", "$DATABASE_MSGSTORE Doesn't Exist")
+            Toast.makeText(this, "Please locate $DATABASE_MSGSTORE", Toast.LENGTH_SHORT).show()
+            false
+        }
+    }
+
+    private fun hasPermission(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            PackageManager.PERMISSION_GRANTED == checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+        } else {
+            true
+        }
+    }
+
+    private fun askPermissions() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val externalPerms = arrayOf(
+                Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                Manifest.permission.READ_EXTERNAL_STORAGE
+            )
+            requestPermissions(externalPerms, REQUEST_PERMISSION_REQUEST_CODE)
+        }
+    }
+
+    private fun copyDBFile(selectedFile: Uri, fileName: String) {
+        openFileOutput(fileName, Context.MODE_PRIVATE).use { outputStream ->
+            application.contentResolver.openInputStream(selectedFile)?.let { inputStream ->
+                val buff = ByteArray(2048)
+                var read: Int
+                while (inputStream.read(buff, 0, buff.size).also { read = it } > 0) {
+                    outputStream.write(buff, 0, read)
+                }
+            }
         }
     }
 

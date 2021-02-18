@@ -49,9 +49,11 @@ When scanning the FB chat data, the app will ask for your name. This is because 
 If you long press on a chat, you can then select multiple chats and merge them together! The merged chats will be sorted by timestamps. This is useful if you have one chat in whatsapp and another in FB, with the same person.
 
 <h3>Chunks?!</h3>
-Once you select a chat to export, there is an option to make chunk! Why? Well, if you are trying to export some 1000+ media files all at once, most likely your device will just give up! On my OP5T, I could handle ~800 files at once. Experiment on your own device. Once the chunks are created, you have to manually upload each of them. Also keep in mind, you might need to wait for a few minutes before exporting. Telgram throttles too many chat export requests.
+Once you select a chat to export, there is an option to make chunk! Why? Well, if you are trying to export some 1000+ media files all at once, most likely your device will just give up! On my device, I could handle ~800 files at once. Experiment on your own device. Once the chunks are created, you have to manually upload each of them. Also keep in mind, you might need to wait for a few minutes between each upload. Telgram throttles too many chat export requests.
 
-Also, each chunk will begin and end with a distinct message : BEGINNING OF CHUNK # and ENDING OF CHUNK #, from the user *Green to Blue*. This serves a few purpose.
+<br>
+
+Also, each chunk of chat will begin and end with a distinct message : BEGINNING OF CHUNK # and ENDING OF CHUNK #, from the user <b>Green to Blue</b>. This serves a few purposes.
 <ul>
 <li>  You can easily search for CHUNK to get to a desired point, especially to the very beginning, of the imported chat. It is highly unlikely that you have many occurences of CHUNK in your existing chat! Note that you can also use the calender in the telegram search as well!
 <li> Usually if you try to export a chat with an user from whatsapp, telegram will detect it as a user chat and will not allow import into groups. This is avoided with the presence of these extra two chats from a different user.

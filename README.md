@@ -1,6 +1,6 @@
 # GreenToBlue
 
-With the new chat import feature of Telegram (praise Durov!), I tried to export all my previous chat from the evil green app. Turns out, the evil green app has very limited **chat import** features, as outlines [here](https://faq.whatsapp.com/android/chats/how-to-save-your-chat-history/?lang=en).
+With the new chat import feature of Telegram (praise Durov!), I tried to export all my previous chat from the evil green app. Turns out, the evil green app has very limited **chat export** features, as outlined [here](https://faq.whatsapp.com/android/chats/how-to-save-your-chat-history/?lang=en).
 
 Some light Google-fu led me to this [XDA Post](https://forum.xda-developers.com/t/tool-whatsapp-xtract-backup-messages-extractor-database-analyzer-chat-backup.1583021/). Inspired by this, I wrote this nifty little app to export full chat, including all media, from Whatsapp to Telegram.
 
